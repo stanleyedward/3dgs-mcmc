@@ -403,6 +403,27 @@ class GaussianModel:
         self.prune_points(prune_mask)
 
         torch.cuda.empty_cache()
+        
+    def turn_gaussian_black(self, grad_threshold):
+        grads = self.xyz_gradient_accum / self.denom
+        grads[grads.isnan()] = 0.0
+
+        selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
+
+        if selected_pts_mask.sum() == 0:
+            print("No points to turn black")
+            return
+        
+        # Set opacity to 1 for these points
+        self._opacity[selected_pts_mask] = inverse_sigmoid(0.999)
+        self._features_rest[selected_pts_mask] = 0.0
+        self._features_dc[selected_pts_mask] = 0.0
+        
+        self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        
+        torch.cuda.empty_cache()
+        
 
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
