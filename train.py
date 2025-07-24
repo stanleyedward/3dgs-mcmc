@@ -130,10 +130,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 gaussians.add_new_gs(cap_max=args.cap_max)
 
             # Densification / black
-            if iteration < opt.densify_until_iter:
+            if iteration >= opt.black_iter:
                 # Keep track of max radii in image-space for pruning
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
+                print(f"[INFO]accumed the grds!")
+                
+                if iteration % opt.densification_interval == 0:
+                    pass
 
                 # if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                 #     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
@@ -142,8 +146,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 # if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
                 #     gaussians.reset_opacity()
 
-            # Optimizer step
-            if iteration < opt.iterations:
+            # Optimizer step; only until black_iter starts
+            if iteration < opt.black_iter:
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none = True)
 
