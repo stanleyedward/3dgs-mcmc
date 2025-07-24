@@ -92,6 +92,8 @@ class OptimizationParams(ParamGroup):
         self.noise_lr = 5e5
         self.scale_reg = 0.01
         self.opacity_reg = 0.01
+        self.black_iter = 25000
+        self.black_threshold = 0.0002
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):
