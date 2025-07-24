@@ -131,11 +131,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
             # Densification / black
             if iteration > opt.black_iter:
-                print(f"viewspace shape: {viewspace_point_tensor.shape}")
-                print(f"visibility_filter shape: {visibility_filter.shape}")
-                print(f"current gaussians count: {gaussians.get_xyz.shape[0]}")
-                print(f"shape xyz_accumulated: {gaussians._xyz_accumulated.shape}")
-                # Keep track of max radii in image-space for pruning
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
                 print(f"[INFO]accumed the grds!")
                 
