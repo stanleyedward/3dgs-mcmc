@@ -124,13 +124,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
-            if iteration < opt.black_iter and iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
+            if iteration <= opt.black_iter and iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                 dead_mask = (gaussians.get_opacity <= 0.005).squeeze(-1)
                 gaussians.relocate_gs(dead_mask=dead_mask)
                 gaussians.add_new_gs(cap_max=args.cap_max)
 
             # Densification / black
-            if iteration >= opt.black_iter:
+            if iteration > opt.black_iter:
+                print(f"viewspace shape: {viewspace_point_tensor.shape}")
                 # Keep track of max radii in image-space for pruning
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
                 print(f"[INFO]accumed the grds!")
@@ -140,7 +141,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
 
             # Optimizer step; only until black_iter starts
-            if iteration < opt.black_iter:
+            if iteration <= opt.black_iter:
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none = True)
 
