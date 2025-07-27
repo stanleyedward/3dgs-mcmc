@@ -24,8 +24,6 @@ from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from scene.gaussian_model import build_scaling_rotation
-
-
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -55,7 +53,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
-
+    cap_reached = False
     for iteration in range(first_iter, opt.iterations + 1):        
         # if network_gui.conn == None:
         #     network_gui.try_connect()
@@ -98,7 +96,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         viewspace_point_tensor = render_pkg["viewspace_points"]
         visibility_filter = render_pkg["visibility_filter"]
         radii = render_pkg["radii"]
-        
+
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
         Ll1 = l1_loss(image, gt_image)
@@ -126,22 +124,24 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
-            if iteration < opt.densify_until_iter and iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
+            if iteration <= opt.black_iter and iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                 dead_mask = (gaussians.get_opacity <= 0.005).squeeze(-1)
                 gaussians.relocate_gs(dead_mask=dead_mask)
                 gaussians.add_new_gs(cap_max=args.cap_max)
+                
+                if not cap_reached and (gaussians.get_xyz.shape[0] >= args.cap_max):
+                    print(f"\n[INFO] cap_max of {args.cap_max} prims reached at iter: {iteration}")
+                    cap_reached = True
 
-            # turn high graident gaussians to black
+            # black
             if iteration > opt.black_iter:
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
-
-                if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
-                   gaussians.turn_gaussians_black(grad_threshold=opt.black_gradient_threshold) 
-
-            # Optimizer step
-            if iteration < opt.iterations and iteration <= opt.black_iter:
-                # gaussians.zero_frozen_grads() #dont train the frozen ones
                 
+                if iteration % opt.densification_interval == 0:
+                    gaussians.turn_gaussian_black(opt.black_threshold, scene.cameras_extent)
+
+            # Optimizer step; only until black_iter starts
+            if iteration <= opt.black_iter:
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none = True)
 
