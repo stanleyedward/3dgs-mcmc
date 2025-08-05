@@ -404,19 +404,21 @@ class GaussianModel:
 
         torch.cuda.empty_cache()
         
-    def turn_gaussian_black(self, grad_threshold):
+    def turn_gaussian_black(self, grad_threshold, scene_extent):
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
+        selected_pts_mask = torch.logical_and(selected_pts_mask,
+                                              torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
 
         if selected_pts_mask.sum() == 0:
             print("No points to turn black")
             return
         
         # Set opacity to 1 for these points
-        self._opacity[selected_pts_mask] = inverse_sigmoid(0.999)
-        self._features_rest[selected_pts_mask] = 0.0
+        self._opacity[selected_pts_mask] = self.inverse_opacity_activation(torch.ones_like(self._opacity[selected_pts_mask]) * 0.999)
+        self._features_rest[selected_pts_mask] = 0.0    
         self._features_dc[selected_pts_mask] = 0.0
         
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
@@ -544,11 +546,8 @@ class GaussianModel:
         self._opacity[add_idx] = new_opacity
         self._scaling[add_idx] = new_scaling
 
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, reset_params=False)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, reset_params=True)
         self.replace_tensors_to_optimizer(inds=add_idx)
 
         return num_gs
-
-
-
 
