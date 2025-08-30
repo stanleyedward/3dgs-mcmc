@@ -78,6 +78,7 @@ if __name__ == "__main__":
     pipeline = PipelineParams(parser)
     parser.add_argument("--iteration", default=-1, type=int)
     parser.add_argument("--save_as", default="output_video", type=str)
+    parser.add_argument("--frames_multiplier", default=2, type=int)
     args = get_combined_args(parser)
     print("Creating video for " + args.model_path)
 
@@ -98,7 +99,8 @@ if __name__ == "__main__":
     render_path = os.path.join(traj_dir, "renders")
     os.makedirs(render_path, exist_ok=True)
     
-    n_frames = 240*3
+    # n_frames = 240*2
+    n_frames = 240 * args.frames_multiplier
     cam_traj = generate_path(scene.getTrainCameras(), n_frames=n_frames)
     
     print(f"created camera trajectory with {n_frames} frames") 
